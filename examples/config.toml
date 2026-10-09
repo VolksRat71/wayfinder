@@ -1,0 +1,14 @@
+# ~/.config/wayfinder/config.toml  (optional; any folder works with zero config)
+
+# Where agent transcripts live, for the retrieve eval. Claude Code's default:
+transcripts = ["~/.claude/projects"]
+
+[sources.notes]
+path = "~/notes"                                   # a folder, usually inside a git repo
+exclude = [".obsidian/", "_attachments/"]          # prefixes that are not notes
+trust_packs = false                                # run this repo's .wayfinder/packs/*/pack.py
+auto_placed = ["^plans/[^/]+\\.md$"]               # paths a tool picks, not a placement decision
+read_roots = { "/some/other/checkout/notes/" = "" } # other absolute paths agents read this source by
+# Folder descriptions; without them, top-level folders are the labels.
+labels.project = { folder = "Projects", criteria = "status page for one ongoing project" }
+labels.reference = { folder = "References", criteria = "reusable how-tos and facts" }

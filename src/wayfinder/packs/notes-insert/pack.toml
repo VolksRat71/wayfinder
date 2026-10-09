@@ -1,0 +1,7 @@
+name = "notes-insert"
+description = "Suggest which existing note new text belongs in, or which folder a new note goes in"
+action = "insert"
+dataset = "git-inserts"
+methods = ["bm25", "minilm", "bm25+laya", "recent", "bm25+recent", "bm25+links"]
+default = "bm25+recent"
+metric = "mrr"

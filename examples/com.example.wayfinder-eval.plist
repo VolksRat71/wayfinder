@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Weekly `wayfinder eval --pick` (Mondays 07:00). Replace USER, copy to ~/Library/LaunchAgents/, launchctl load it. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.example.wayfinder-eval</string>
+  <key>ProgramArguments</key>
+  <array><string>/Users/USER/.local/bin/wayfinder</string><string>eval</string><string>--pick</string></array>
+  <key>EnvironmentVariables</key>
+  <!-- CPU: a scheduled job should not contend for a GPU other local models are using. -->
+  <dict><key>WAYFINDER_DEVICE</key><string>cpu</string><key>HF_HUB_DISABLE_XET</key><string>1</string></dict>
+  <key>StartCalendarInterval</key>
+  <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+  <key>StandardOutPath</key><string>/tmp/wayfinder-eval.log</string>
+  <key>StandardErrorPath</key><string>/tmp/wayfinder-eval.log</string>
+</dict>
+</plist>

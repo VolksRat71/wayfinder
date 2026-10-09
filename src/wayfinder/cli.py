@@ -1,9 +1,11 @@
 """wayfinder: retrieve / insert over notes, and the eval that picks how."""
 import argparse
+import json
 import sys
 from pathlib import Path
 
 from . import evaluate as E
+from . import live
 from .corpus import Source
 from .packs import discover
 
@@ -30,6 +32,32 @@ def cmd_eval(args):
                 print(f"picked {best} for {pack.name} on {source.name}", file=sys.stderr)
 
 
+def _print(result, as_json):
+    if as_json:
+        print(json.dumps(result, indent=2))
+        return
+    for n in result["notes"]:
+        print(f"{n['score']:.3f}  {n['path']}" + (f"  - {n['description']}" if n["description"] else ""))
+    if (folder := result.get("new_note_folder")):
+        print(f"new note -> {folder['folder']}/  ({folder['confidence']:.2f})")
+
+
+def cmd_retrieve(args):
+    source = Source.resolve(args.source) if args.source else None
+    _print(live.retrieve(" ".join(args.query), source, args.k), args.json)
+
+
+def cmd_insert(args):
+    text = sys.stdin.read() if args.text in (None, "-") else args.text
+    source = Source.resolve(args.source) if args.source else None
+    _print(live.insert(text, source, args.k), args.json)
+
+
+def cmd_mcp(args):
+    from .mcp_server import main as serve
+    serve()
+
+
 def cmd_packs(args):
     source = Source.resolve(args.source[0]) if args.source else None
     for pack in discover(source).values():
@@ -46,6 +74,16 @@ def main(argv=None):
     e.add_argument("--pick", action="store_true", help="make each pack's best method the default")
     e.add_argument("--results", default=str(E.DATA / "results.tsv"))
     e.set_defaults(fn=cmd_eval)
+    r = sub.add_parser("retrieve", help="notes most likely to answer a question")
+    r.add_argument("query", nargs="+")
+    i = sub.add_parser("insert", help="where new text belongs (reads stdin when TEXT is - or missing)")
+    i.add_argument("text", nargs="?")
+    for c, fn in ((r, cmd_retrieve), (i, cmd_insert)):
+        c.add_argument("--source", help="configured source name or a path (default: the one containing cwd)")
+        c.add_argument("-k", type=int, default=5)
+        c.add_argument("--json", action="store_true")
+        c.set_defaults(fn=fn)
+    sub.add_parser("mcp", help="run the stdio MCP server").set_defaults(fn=cmd_mcp)
     k = sub.add_parser("packs", help="list available packs")
     k.add_argument("--source", action="append")
     k.set_defaults(fn=cmd_packs)

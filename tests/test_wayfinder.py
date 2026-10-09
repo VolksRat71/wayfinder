@@ -90,3 +90,22 @@ def test_source_pack_can_add_a_builder_and_method(vault):
     pack = discover(source)["custom"]
     rows = E.evaluate(pack, source, emit=lambda r: None)
     assert rows[0][1:5] == ("retrieve", "alphabetical", 1, 1.0)  # food/bread.md sorts first
+
+
+def test_live_retrieve_and_insert_read_the_working_tree(vault):
+    from wayfinder import live
+    path, _, _ = vault
+    (path / "food" / "salad.md").write_text("Caesar salad: romaine, croutons, parmesan, anchovy dressing.\n")  # uncommitted
+    source = Source("t", path)
+    assert live.retrieve("caesar salad croutons", source)["notes"][0]["path"] == "food/salad.md"
+    result = live.insert("Bread proofing: sourdough starter needs feeding before the dough.", source)
+    assert result["notes"][0]["path"] == "food/bread.md"
+    assert result["new_note_folder"]["folder"] == "food"
+
+
+def test_mcp_server_registers_read_only_tools():
+    import asyncio
+    from wayfinder.mcp_server import server
+    tools = {t.name: t for t in asyncio.run(server.list_tools())}
+    assert {"retrieve", "insert", "list_sources", "list_packs", "run_pack"} <= tools.keys()
+    assert all(t.annotations.read_only_hint for t in tools.values())

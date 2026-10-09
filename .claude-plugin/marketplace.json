@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "wayfinder",
+  "description": "Retrieve and insert for notes and docs, with an eval that picks the method from your own history.",
+  "owner": { "name": "VolksRat71", "url": "https://github.com/VolksRat71" },
+  "plugins": [
+    {
+      "name": "wayfinder",
+      "description": "Find the notes that answer a question, and where new text belongs.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

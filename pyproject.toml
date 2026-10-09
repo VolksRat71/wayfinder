@@ -3,7 +3,7 @@ name = "wayfinder"
 version = "0.1.0"
 description = "Retrieve and insert for notes and repos, with an eval that picks the method from your own history"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["mcp>=2.3,<3"]
 
 [project.optional-dependencies]
 embed = ["transformers>=4.40", "torch>=2.2"]

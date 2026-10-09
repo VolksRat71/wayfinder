@@ -18,6 +18,30 @@ uv tool install "wayfinder[embed,laya] @ git+https://github.com/VolksRat71/wayfi
 
 The repo is private, so `git` must already be able to reach it (`gh auth login && gh auth setup-git`, or an SSH key).
 
+### Agents (Claude Code, Codex)
+
+The plugins add read-only MCP tools (`retrieve`, `insert`, `list_sources`, `list_packs`, `run_pack`) and two skills. They call the `wayfinder` CLI above, so install that first.
+
+```sh
+# Claude Code
+/plugin marketplace add VolksRat71/wayfinder
+/plugin install wayfinder@wayfinder
+
+# Codex
+codex plugin marketplace add VolksRat71/wayfinder
+codex plugin add wayfinder@wayfinder
+```
+
+## Use
+
+```sh
+wayfinder retrieve "how do we rotate the deploy keys" --source ~/notes
+wayfinder insert "Deploy keys rotate every 90 days; the runbook is ..." --source ~/notes
+echo "long text" | wayfinder insert - --source ~/notes --json
+```
+
+`--source` takes a configured name or any folder; by default it's the configured source containing the current directory, or the current directory itself. `insert` only suggests, so you or the agent do the write.
+
 ## Evaluate on your own data
 
 ```sh
@@ -65,4 +89,7 @@ def my_method(corpus, query, notes):   # -> [(path, score)] best first
 
 ```sh
 uv venv && uv pip install -e ".[embed,laya,dev]" && .venv/bin/pytest -q
+uv tool install -e .                 # put the dev checkout's `wayfinder` on PATH for the plugins
+claude --plugin-dir .                # try the Claude plugin from the checkout; `claude plugin validate .` checks manifests
+codex plugin marketplace add .       # try the Codex plugin from the checkout
 ```

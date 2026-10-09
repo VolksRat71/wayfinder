@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "wayfinder": {
+      "command": "wayfinder",
+      "args": ["mcp"]
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "wayfinder",
+  "version": "0.1.0",
+  "description": "Retrieve and insert for notes and docs: which notes answer this, and where new text belongs. Needs the wayfinder CLI (uv tool install).",
+  "author": { "name": "VolksRat71", "url": "https://github.com/VolksRat71" },
+  "homepage": "https://github.com/VolksRat71/wayfinder",
+  "repository": "https://github.com/VolksRat71/wayfinder",
+  "keywords": ["notes", "obsidian", "retrieval", "mcp"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "wayfinder",
+    "shortDescription": "Find notes and where new text belongs",
+    "longDescription": "Read-only retrieve and insert tools over a folder of markdown notes, with an eval that picks the ranking method from your own history.",
+    "developerName": "VolksRat71",
+    "category": "Productivity",
+    "capabilities": ["Instructions", "MCP"],
+    "defaultPrompt": [
+      "Which notes in my vault cover this?",
+      "Where should I write this down?"
+    ]
+  }
+}

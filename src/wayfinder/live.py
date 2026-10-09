@@ -58,31 +58,38 @@ def _results(corpus, ranked, keys, k):
             for rel, score in ranked[:k]]
 
 
-def retrieve(query, source=None, k=5, pack="notes-retrieve"):
+def _notes(corpus, exclude):
+    """The note being looked up or filed must not rank (or vote) for itself."""
+    return [(rel, key) for rel, key in corpus.at() if rel not in (exclude or ())]
+
+
+def retrieve(query, source=None, k=5, pack="notes-retrieve", exclude=None):
     """Notes most likely to answer `query`, best first."""
     source = source or default_source()
     p = discover(source)[pack]
     corpus = LiveCorpus(source)
-    notes = corpus.at()
+    notes = _notes(corpus, exclude)
     return {"source": str(source.path), "method": picked(p, source),
             "notes": _results(corpus, _method(p, source)(corpus, query, notes), dict(notes), k)}
 
 
-def insert(text, source=None, k=5, pack="notes-insert"):
+def insert(text, source=None, k=5, pack="notes-insert", exclude=None):
     """Where `text` belongs: existing notes to add it to, and a folder if it should be a new note."""
     source = source or default_source()
     p = discover(source)[pack]
     corpus = LiveCorpus(source)
-    notes = corpus.at()
+    notes = _notes(corpus, exclude)
     ranked = _method(p, source)(corpus, text, notes)
-    label, confidence = folder_vote(source, ranked)
+    # The folder vote uses text similarity only: recency pads every recent note's score, and in
+    # the eval it dropped new-note folder accuracy (bm25 0.58 vs bm25+recent 0.42).
+    label, confidence = folder_vote(source, M.bm25(corpus, text, notes))
     folder = source.cfg["labels"][label]["folder"] if label else None
     return {"source": str(source.path), "method": picked(p, source),
             "notes": _results(corpus, ranked, dict(notes), k),
             "new_note_folder": {"folder": folder, "confidence": round(confidence, 3)} if folder else None}
 
 
-def run_pack(pack, text, source=None, k=5):
+def run_pack(pack, text, source=None, k=5, exclude=None):
     source = source or default_source()
     p = discover(source)[pack]
-    return (retrieve if p.action == "retrieve" else insert)(text, source, k, pack)
+    return (retrieve if p.action == "retrieve" else insert)(text, source, k, pack, exclude)

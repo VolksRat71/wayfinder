@@ -1,0 +1,10 @@
+{
+  "id": "wayfinder",
+  "name": "Wayfinder",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Find related notes, and where new text belongs, using the local wayfinder CLI.",
+  "author": "VolksRat71",
+  "authorUrl": "https://github.com/VolksRat71",
+  "isDesktopOnly": true
+}

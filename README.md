@@ -32,6 +32,18 @@ codex plugin marketplace add VolksRat71/wayfinder
 codex plugin add wayfinder@wayfinder
 ```
 
+### Obsidian (desktop)
+
+```sh
+wayfinder obsidian-install ~/path/to/vault
+```
+
+Then enable **Wayfinder** under Settings > Community plugins. It adds two commands, which work on the selection or on the whole note if nothing is selected:
+- **Related notes** opens the notes that best match.
+- **Where does this go?** lists the existing notes this text belongs in, plus a folder for a new note.
+
+The plugin calls the local CLI: there is no server and nothing leaves your machine. Re-run the install command to upgrade; your plugin settings are kept.
+
 ## Use
 
 ```sh
@@ -92,4 +104,5 @@ uv venv && uv pip install -e ".[embed,laya,dev]" && .venv/bin/pytest -q
 uv tool install -e .                 # put the dev checkout's `wayfinder` on PATH for the plugins
 claude --plugin-dir .                # try the Claude plugin from the checkout; `claude plugin validate .` checks manifests
 codex plugin marketplace add .       # try the Codex plugin from the checkout
+cd obsidian && npm install && npm test   # build the Obsidian plugin into src/wayfinder/obsidian_plugin/ and smoke-test it
 ```

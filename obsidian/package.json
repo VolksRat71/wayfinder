@@ -1,0 +1,15 @@
+{
+  "name": "wayfinder-obsidian",
+  "private": true,
+  "scripts": {
+    "build": "esbuild main.ts --bundle --platform=node --format=cjs --target=es2020 --external:obsidian --external:electron --outfile=../src/wayfinder/obsidian_plugin/main.js",
+    "check": "tsc --noEmit",
+    "test": "npm run build && node --test smoke.test.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "esbuild": "^0.28.2",
+    "obsidian": "^1.14.4",
+    "typescript": "^7.0.2"
+  }
+}

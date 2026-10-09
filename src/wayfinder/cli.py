@@ -1,6 +1,7 @@
 """wayfinder: retrieve / insert over notes, and the eval that picks how."""
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -44,18 +45,33 @@ def _print(result, as_json):
 
 def cmd_retrieve(args):
     source = Source.resolve(args.source) if args.source else None
-    _print(live.retrieve(" ".join(args.query), source, args.k), args.json)
+    _print(live.retrieve(" ".join(args.query), source, args.k, exclude=args.exclude), args.json)
 
 
 def cmd_insert(args):
     text = sys.stdin.read() if args.text in (None, "-") else args.text
     source = Source.resolve(args.source) if args.source else None
-    _print(live.insert(text, source, args.k), args.json)
+    _print(live.insert(text, source, args.k, exclude=args.exclude), args.json)
 
 
 def cmd_mcp(args):
     from .mcp_server import main as serve
     serve()
+
+
+def cmd_obsidian_install(args):
+    vault = Path(args.vault).expanduser().resolve()
+    if not (vault / ".obsidian").is_dir():
+        sys.exit(f"{vault} is not an Obsidian vault (no .obsidian/ folder)")
+    dest = vault / ".obsidian" / "plugins" / "wayfinder"
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in ("manifest.json", "main.js"):
+        shutil.copy2(Path(__file__).parent / "obsidian_plugin" / name, dest / name)
+    settings = dest / "data.json"
+    if not settings.exists():  # Obsidian doesn't get the shell PATH, so record where this CLI lives
+        settings.write_text(json.dumps({"command": shutil.which("wayfinder") or sys.argv[0]}) + "\n")
+    print(f"Installed to {dest}. In Obsidian: Settings > Community plugins > enable Wayfinder, then run "
+          "'Wayfinder: Related notes' or 'Wayfinder: Where does this go?' from the command palette.")
 
 
 def cmd_packs(args):
@@ -82,8 +98,13 @@ def main(argv=None):
         c.add_argument("--source", help="configured source name or a path (default: the one containing cwd)")
         c.add_argument("-k", type=int, default=5)
         c.add_argument("--json", action="store_true")
+        c.add_argument("--exclude", action="append", help="note path (relative to the source) to leave out, e.g. "
+                       "the note being filed (repeatable)")
         c.set_defaults(fn=fn)
     sub.add_parser("mcp", help="run the stdio MCP server").set_defaults(fn=cmd_mcp)
+    o = sub.add_parser("obsidian-install", help="install the Obsidian plugin into a vault")
+    o.add_argument("vault")
+    o.set_defaults(fn=cmd_obsidian_install)
     k = sub.add_parser("packs", help="list available packs")
     k.add_argument("--source", action="append")
     k.set_defaults(fn=cmd_packs)

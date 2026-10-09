@@ -15,20 +15,22 @@ def _source(source):
 
 
 @server.tool(annotations=READ_ONLY)
-def retrieve(query: str, source: str | None = None, k: int = 5) -> dict:
+def retrieve(query: str, source: str | None = None, k: int = 5, exclude: list[str] | None = None) -> dict:
     """Find the notes most likely to answer a question, best first, with their descriptions.
 
     source: a configured source name (see list_sources) or a folder path; defaults to the source
-    containing the current directory. Returns paths relative to the source; read them yourself.
+    containing the current directory. exclude: note paths to leave out (e.g. the note you are in).
+    Returns paths relative to the source; read them yourself.
     """
-    return live.retrieve(query, _source(source), k)
+    return live.retrieve(query, _source(source), k, exclude=exclude)
 
 
 @server.tool(annotations=READ_ONLY)
-def insert(text: str, source: str | None = None, k: int = 5) -> dict:
+def insert(text: str, source: str | None = None, k: int = 5, exclude: list[str] | None = None) -> dict:
     """Suggest where new text belongs: existing notes to add it to (best first), and the folder
-    for a new note if none fits. Suggests only; never writes. Follow the source's own filing rules."""
-    return live.insert(text, _source(source), k)
+    for a new note if none fits. Suggests only; never writes. Follow the source's own filing rules.
+    exclude: note paths to leave out, such as the note being filed if it already exists."""
+    return live.insert(text, _source(source), k, exclude=exclude)
 
 
 @server.tool(annotations=READ_ONLY)

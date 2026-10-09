@@ -8,6 +8,9 @@ Retrieve and insert for notes and repos, with an eval that picks the method from
 The eval mines what already happened (git history for inserts, Claude Code and Codex transcripts
 for retrieve), scores each method against it, and `--pick` makes the winner your default. On the first
 two vaults it was run on, plain BM25 plus recency beat embeddings and the Laya decision model.
+In an agent race on those vaults, an agent using wayfinder found the right note as often as one
+using grep (30/30 each), and 2× faster overall, 2.6× on questions whose answer isn't in a note's
+title. See [docs/benchmarks.md](docs/benchmarks.md).
 
 ## Quick start
 

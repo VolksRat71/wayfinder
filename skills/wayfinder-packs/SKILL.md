@@ -43,7 +43,7 @@ def build(source):
     # The snapshot is the commit just before the event, so no method can see the future.
     ...
 
-@register("my-method")
+@register("my-method")          # add requires="module" for optional deps
 def my_method(corpus, query, notes):
     # notes: [(path, key)]; corpus.doc(path, key) is the text; corpus.age_days(path) is the recency.
     # Return [(path, score)], best first.

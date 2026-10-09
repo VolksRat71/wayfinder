@@ -1,6 +1,6 @@
 {
   "name": "wayfinder",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Retrieve and insert for notes and docs: which notes answer this, and where new text belongs. Needs the wayfinder CLI (uv tool install).",
   "author": { "name": "VolksRat71", "url": "https://github.com/VolksRat71" },
   "repository": "https://github.com/VolksRat71/wayfinder"

@@ -23,7 +23,12 @@ def cmd_eval(args):
     results = Path(args.results).expanduser()
 
     def run(pack, source):
-        rows = E.evaluate(pack, source, args.methods, emit=lambda r: print("\t".join(map(E.fmt, r)), flush=True))
+        try:
+            rows = E.evaluate(pack, source, args.methods, emit=lambda r: print("\t".join(map(E.fmt, r)), flush=True))
+        except Exception as e:  # one broken pack must not sink the rest of the run
+            where = source.name if source else "all"
+            print(f"wayfinder eval: pack {pack.name} failed on {where}: {type(e).__name__}: {e}", file=sys.stderr)
+            return
         E.append_results(rows, results)
         if args.pick and (best := E.pick(pack, source, rows)):
             print(f"picked {best} for {pack.name} on {source.name if source else 'all'}", file=sys.stderr)

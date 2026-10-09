@@ -9,7 +9,7 @@
   minilm       all-MiniLM-L6-v2 cosine similarity           (extra: wayfinder[embed])
   bm25+laya    BM25 shortlist re-ranked by a Laya `choice`   (extra: wayfinder[laya])
 
-Packs add their own with `@register("name")` in pack.py.
+Packs add their own with `@register("name")` in pack.py; `requires="module"` marks an optional dependency.
 """
 import collections
 import functools
@@ -24,11 +24,14 @@ RECENCY_WEIGHT, RECENCY_DAYS = 0.5, 7
 TOKEN = re.compile(r"\w+")
 WIKILINK = re.compile(r"\[\[([^\]|#]+)")
 METHODS = {}
+REQUIRES = {}  # method -> importable module it needs; such methods are skipped when it's missing
 
 
-def register(name):
+def register(name, requires=None):
     def add(fn):
         METHODS[name] = fn
+        if requires:
+            REQUIRES[name] = requires
         return fn
     return add
 
@@ -118,7 +121,7 @@ def embed(texts):
     return torch.cat(out)
 
 
-@register("minilm")
+@register("minilm", requires="transformers")
 def minilm(corpus, query, notes):
     import torch
     # Keyed by source too: two vaults can hold the same relative path with the same mtime
@@ -159,7 +162,7 @@ def laya_noul(state, instructions):
                             model="english")["answers"]["q"]["noul"]
 
 
-@register("bm25+laya")
+@register("bm25+laya", requires="laya")
 def bm25_laya(corpus, query, notes):
     ranked = bm25(corpus, query, notes)
     head, tail = ranked[:SHORTLIST], ranked[SHORTLIST:]
@@ -171,7 +174,7 @@ def bm25_laya(corpus, query, notes):
 
 def available(name):
     """Whether a method's optional dependencies are installed."""
-    need = {"minilm": "transformers", "bm25+laya": "laya"}.get(name)
+    need = REQUIRES.get(name)
     if not need:
         return True
     import importlib.util

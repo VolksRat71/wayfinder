@@ -64,13 +64,13 @@ def keywords(corpus, query, labels):
     return _yes_no(min(0.95, 0.2 + 0.15 * hits))
 
 
-@register("laya-noul")
+@register("laya-noul", requires="laya")
 def laya_noul(corpus, query, labels):
     from wayfinder.methods import laya_noul as noul
     return _yes_no(noul(query, QUESTION))
 
 
-@register("laya-needs-review")
+@register("laya-needs-review", requires="laya")
 def laya_needs_review(corpus, query, labels):
     # Laya's typed-decisions checkpoint was trained on agent traces with a `needs_review` question.
     from wayfinder.methods import router

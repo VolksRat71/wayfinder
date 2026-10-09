@@ -214,7 +214,7 @@ from wayfinder.methods import register
 def build(source):             # -> [{"query", "truth": [paths], "snapshot": commit}]
     ...
 
-@register("my-method")
+@register("my-method")          # add requires="module" for optional deps
 def my_method(corpus, query, notes):   # -> [(path, score)] best first
     ...
 ```

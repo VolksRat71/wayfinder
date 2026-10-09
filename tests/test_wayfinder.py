@@ -169,3 +169,32 @@ def test_all_manifests_share_one_version():
         json.loads((root / p).read_text())["version"] for p in
         (".claude-plugin/plugin.json", ".codex-plugin/plugin.json", "src/wayfinder/obsidian_plugin/manifest.json")}
     assert len(versions) == 1, versions
+
+
+def test_methods_with_missing_dependencies_are_skipped(vault):
+    path, _, _ = vault
+
+    @M.register("needs-nothing-installed", requires="wayfinder_no_such_module_xyz")
+    def missing(corpus, query, notes):
+        raise AssertionError("must not run")
+
+    assert not M.available("needs-nothing-installed") and M.available("bm25")
+    pack = Pack("p", "", "insert", "git-inserts", methods=["bm25", "needs-nothing-installed"])
+    methods = {r[2] for r in E.evaluate(pack, Source("t", path), emit=lambda r: None)}
+    assert "bm25" in methods and "needs-nothing-installed" not in methods
+
+
+def test_a_failing_pack_does_not_stop_the_eval(vault, monkeypatch, capsys):
+    from wayfinder import cli
+    from wayfinder.data import builder
+    path, _, _ = vault
+
+    @builder("explodes")
+    def explodes(source):
+        raise RuntimeError("boom")
+
+    packs = {"bad": Pack("bad", "", "retrieve", "explodes"), "good": Pack("good", "", "insert", "git-inserts", methods=["bm25"])}
+    monkeypatch.setattr(cli, "discover", lambda source=None: packs)
+    cli.main(["eval", "--source", str(path), "--results", str(path / "results.tsv")])
+    out, err = capsys.readouterr()
+    assert "pack bad failed" in err and "insert_update" in out

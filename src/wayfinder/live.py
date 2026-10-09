@@ -5,7 +5,7 @@ from pathlib import Path
 
 from . import methods as M
 from .corpus import Source, _Docs, split
-from .evaluate import folder_vote, picked
+from .evaluate import classify, folder_vote, picked
 from .packs import discover
 
 PRUNE = {".git", ".obsidian", ".trash", "node_modules", ".venv"}
@@ -92,4 +92,9 @@ def insert(text, source=None, k=5, pack="notes-insert", exclude=None):
 def run_pack(pack, text, source=None, k=5, exclude=None):
     source = source or default_source()
     p = discover(source)[pack]
+    if p.action == "choice":
+        name = picked(p, None if not p.per_source else source)
+        name = name if M.available(name) and name in M.METHODS else p.default
+        return {"pack": p.name, "method": name,
+                "labels": [{"label": l, "score": round(s, 4)} for l, s in classify(p, name, text)]}
     return (retrieve if p.action == "retrieve" else insert)(text, source, k, pack, exclude)

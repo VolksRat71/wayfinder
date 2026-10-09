@@ -102,6 +102,16 @@ class _Docs:
         return f"{rel[:-3]}: {desc}"[:240] if desc else rel[:-3]
 
 
+class LabelCorpus(_Docs):
+    """Candidates for a `choice` pack are its labels; a label's text is its description."""
+
+    def blob(self, description):
+        return "", description
+
+    def age_days(self, label):
+        return 0.0
+
+
 class GitCorpus(_Docs):
     """Notes as they were at any commit, read from git once per blob. Used by the eval."""
 

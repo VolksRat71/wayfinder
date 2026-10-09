@@ -2,13 +2,16 @@
 
 git-inserts       a commit edited an existing note (kind=update: query = added lines, truth = [note])
                   or added a note (kind=new: query = its text, truth = its folder label)
-transcript-reads  a typed prompt (or subagent brief) in a Claude transcript; truth = notes then read
+transcript-reads  a typed prompt (or subagent brief) in a Claude Code or Codex transcript; truth =
+                  the notes the agent then read
 
 Every row carries `snapshot`, the commit whose notes are the candidates, so no method can find a
 note that did not exist yet. Bulk commits (> MAX_FILES notes) and renames are filing passes, not
 placement decisions, and are skipped; so are paths a tool picks (`auto_placed`).
 """
+import ast
 import json
+import os
 import re
 from pathlib import Path
 
@@ -103,8 +106,64 @@ def transcript_files():
     return files
 
 
+def _to_note(source, abs_path):
+    for abs_root, rel_root in source.cfg["read_roots"].items():
+        if abs_path.startswith(abs_root):
+            return source.note(source.prefix + rel_root + abs_path[len(abs_root):])
+    return None
+
+
+def _parsed(value):
+    """Codex stores some fields as Python reprs rather than JSON."""
+    if isinstance(value, str):
+        try:
+            return ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return None
+    return value
+
+
+def _codex_reads(source, seen):
+    """Codex sessions: UserMessage items are prompts; CommandExecution items carry parsed reads."""
+    roots = load_config().get("codex_sessions", ["~/.codex/sessions"])
+    for path in (f for r in roots for f in sorted(Path(r).expanduser().glob("*/*/*/*.jsonl"))):
+        prompt, ts, reads = None, None, []
+
+        def flush():
+            truth = sorted(set(reads))
+            if prompt and truth and (prompt, tuple(truth)) not in seen:
+                seen.add((prompt, tuple(truth)))
+                yield {"query": prompt, "truth": truth, "ts": ts, "session": path.stem}
+
+        for line in open(path, encoding="utf-8", errors="replace"):
+            try:
+                r = json.loads(line)
+            except ValueError:
+                continue
+            p = r.get("payload") or {}
+            if r.get("type") == "session_meta" and "guardian" in json.dumps(p.get("source")):
+                break  # approval-review sessions: their "user" turns are transcripts, not prompts
+            item = p.get("item") or {}
+            if r.get("type") != "event_msg" or p.get("type") != "item_completed":
+                continue
+            if item.get("type") == "UserMessage":
+                text = "\n".join(c.get("text", "") for c in _parsed(item.get("content")) or [] if isinstance(c, dict)).strip()
+                if text:
+                    yield from flush()
+                    prompt, ts, reads = text[:2000], r.get("timestamp"), []
+            elif item.get("type") == "CommandExecution":
+                cwd = str(item.get("cwd") or "").removeprefix("file://")
+                for step in _parsed(item.get("parsed_cmd")) or []:
+                    if isinstance(step, dict) and step.get("type") == "read" and step.get("path"):
+                        full = os.path.normpath(os.path.join(cwd, step["path"]))
+                        if (rel := _to_note(source, full)):
+                            reads.append(rel)
+        yield from flush()
+
+
 def _reads(source):
     roots, seen = source.cfg["read_roots"], set()
+    yield from _codex_reads(source, seen)
     for path in transcript_files():
         subagent = path.parent.name == "subagents"
         prompt, ts, reads = None, None, []

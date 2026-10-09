@@ -1,0 +1,13 @@
+name = "handback-triage"
+description = "Does a subagent's handback need the lead to follow up (unfinished, blocked, waiting on a decision), or is it done?"
+action = "choice"
+dataset = "claude-handbacks"
+methods = ["keywords", "laya-noul", "laya-needs-review"]
+default = "keywords"
+metric = "accuracy"
+per_source = false
+baselines = []
+
+[labels]
+follow_up = "the lead had to send the agent more work, a decision or a correction"
+done = "the handback was accepted as delivered"

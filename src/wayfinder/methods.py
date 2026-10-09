@@ -4,6 +4,8 @@
   recent       most recently edited first (no text at all)
   bm25+recent  BM25 (scaled to 0-1) + RECENCY_WEIGHT * recency
   bm25+links   BM25 (scaled to 0-1) + 1 for notes the query [[links]] to
+  bm25-trunc5, bm25-trunc5+recent  the same with every word cut to its first 5 letters, so
+               "parameters" meets "params" and "deploys" meets "deployment"
   minilm       all-MiniLM-L6-v2 cosine similarity           (extra: wayfinder[embed])
   bm25+laya    BM25 shortlist re-ranked by a Laya `choice`   (extra: wayfinder[laya])
 
@@ -32,16 +34,16 @@ def register(name):
 
 
 @functools.lru_cache(maxsize=None)
-def _tokens(text):
-    return TOKEN.findall(text.lower())
+def _tokens(text, cut=None):
+    return [t[:cut] for t in TOKEN.findall(text.lower())]
 
 
 @register("bm25")
-def bm25(corpus, query, notes, k1=1.5, b=0.75):
-    docs = [_tokens(corpus.doc(rel, key)) for rel, key in notes]
+def bm25(corpus, query, notes, k1=1.5, b=0.75, cut=None):
+    docs = [_tokens(corpus.doc(rel, key), cut) for rel, key in notes]
     avg = sum(len(d) for d in docs) / max(len(docs), 1)
     df = collections.Counter(t for d in docs for t in set(d))
-    q = set(TOKEN.findall(query.lower()))
+    q = set(_tokens(query, cut))
     scores = []
     for (rel, _), d in zip(notes, docs):
         tf = collections.Counter(d)
@@ -51,8 +53,8 @@ def bm25(corpus, query, notes, k1=1.5, b=0.75):
     return sorted(scores, key=lambda x: -x[1])
 
 
-def _scaled_bm25(corpus, query, notes):
-    ranked = bm25(corpus, query, notes)
+def _scaled_bm25(corpus, query, notes, cut=None):
+    ranked = bm25(corpus, query, notes, cut=cut)
     top = ranked[0][1] if ranked and ranked[0][1] > 0 else 1
     return {rel: s / top for rel, s in ranked}
 
@@ -69,6 +71,17 @@ def recent(corpus, query, notes):
 @register("bm25+recent")
 def bm25_recent(corpus, query, notes):
     base = _scaled_bm25(corpus, query, notes)
+    return sorted(((rel, s + RECENCY_WEIGHT * _recency(corpus, rel)) for rel, s in base.items()), key=lambda x: -x[1])
+
+
+@register("bm25-trunc5")
+def bm25_trunc5(corpus, query, notes):
+    return bm25(corpus, query, notes, cut=5)
+
+
+@register("bm25-trunc5+recent")
+def bm25_trunc5_recent(corpus, query, notes):
+    base = _scaled_bm25(corpus, query, notes, cut=5)
     return sorted(((rel, s + RECENCY_WEIGHT * _recency(corpus, rel)) for rel, s in base.items()), key=lambda x: -x[1])
 
 

@@ -2,6 +2,6 @@ name = "notes-retrieve"
 description = "Find the notes that answer a question or relate to a piece of text"
 action = "retrieve"
 dataset = "transcript-reads"
-methods = ["bm25", "minilm", "bm25+laya", "recent", "bm25+recent", "bm25+links"]
+methods = ["bm25", "bm25-trunc5", "minilm", "bm25+laya", "recent", "bm25+recent", "bm25-trunc5+recent", "bm25+links"]
 default = "bm25+recent"
 metric = "recall@5"

@@ -22,11 +22,16 @@ USER = Path("~/.config/wayfinder/packs").expanduser()
 class Pack:
     name: str
     description: str
-    action: str                     # retrieve | insert
+    action: str                     # retrieve | insert | choice
     dataset: str                    # a registered builder
     methods: list = field(default_factory=lambda: ["bm25", "recent", "bm25+recent"])
     default: str = "bm25+recent"
-    metric: str = "mrr"             # what `eval --pick` maximises: hit@1 | recall@5 | mrr
+    metric: str = "mrr"             # what `eval --pick` maximises: hit@1 | recall@5 | mrr | accuracy
+    labels: dict = None             # choice packs: {label: description}
+    # Scored for comparison, never picked: `recent` ignores the query and wins retrieve evals only
+    # because agents mostly read what is being worked on.
+    baselines: list = field(default_factory=lambda: ["recent"])
+    per_source: bool = True         # false: the pack's data doesn't depend on a source; evaluated once
     dir: Path = None
 
 

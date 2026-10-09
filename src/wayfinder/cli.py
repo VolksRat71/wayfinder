@@ -20,17 +20,24 @@ def cmd_eval(args):
     if not sources:
         sys.exit("No sources: pass --source PATH or add [sources.<name>] to ~/.config/wayfinder/config.toml")
     print("source\taction\tmethod\tn\thit@1\trecall@5\tmrr_or_acc\tsel@50")
+    results = Path(args.results).expanduser()
+
+    def run(pack, source):
+        rows = E.evaluate(pack, source, args.methods, emit=lambda r: print("\t".join(map(E.fmt, r)), flush=True))
+        E.append_results(rows, results)
+        if args.pick and (best := E.pick(pack, source, rows)):
+            print(f"picked {best} for {pack.name} on {source.name if source else 'all'}", file=sys.stderr)
+
+    for pack in discover().values():  # packs whose data doesn't depend on a source run once
+        if not pack.per_source and (not args.pack or pack.name in args.pack):
+            run(pack, None)
     for source in sources:
         if source.root is None:
             print(f"skip {source.name}: not in a git repo, nothing to evaluate", file=sys.stderr)
             continue
         for pack in discover(source).values():
-            if args.pack and pack.name not in args.pack:
-                continue
-            rows = E.evaluate(pack, source, args.methods, emit=lambda r: print("\t".join(map(E.fmt, r)), flush=True))
-            E.append_results(rows, Path(args.results).expanduser())
-            if args.pick and (best := E.pick(pack, source, rows)):
-                print(f"picked {best} for {pack.name} on {source.name}", file=sys.stderr)
+            if pack.per_source and (not args.pack or pack.name in args.pack):
+                run(pack, source)
 
 
 def _print(result, as_json):

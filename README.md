@@ -5,8 +5,8 @@ Retrieve and insert for notes and repos, with an eval that picks the method from
 - **retrieve**: which notes answer this question?
 - **insert**: which existing note does this new text belong in, or which folder should a new note go in?
 
-The eval mines what already happened (git history for inserts, Claude Code transcripts for
-retrieve), scores each method against it, and `--pick` makes the winner your default. On the first
+The eval mines what already happened (git history for inserts, Claude Code and Codex transcripts
+for retrieve), scores each method against it, and `--pick` makes the winner your default. On the first
 two vaults it was run on, plain BM25 plus recency beat embeddings and the Laya decision model.
 
 ## Install
@@ -76,11 +76,15 @@ only runs for a source with `trust_packs = true` in your config; untrusted repo 
 ```toml
 name = "my-pack"
 description = "What this decides, for agents reading list_packs"
-action = "retrieve"            # retrieve | insert
+action = "retrieve"            # retrieve | insert | choice
 dataset = "my-builder"         # registered with @builder in pack.py
 methods = ["bm25", "bm25+recent", "my-method"]
 default = "bm25+recent"
-metric = "mrr"                 # hit@1 | recall@5 | mrr, what --pick maximises
+metric = "mrr"                 # hit@1 | recall@5 | mrr | accuracy, what --pick maximises
+baselines = ["recent"]         # scored for comparison, never picked
+# choice packs classify text instead of ranking notes:
+# labels = { follow_up = "needs more work or a decision", done = "accepted as delivered" }
+# per_source = false           # data doesn't depend on a source; evaluated once
 ```
 
 ```python
@@ -96,6 +100,12 @@ def build(source):             # -> [{"query", "truth": [paths], "snapshot": com
 def my_method(corpus, query, notes):   # -> [(path, score)] best first
     ...
 ```
+
+`examples/packs/handback-triage/` is a complete outside pack: it labels every Claude Code
+subagent handback by whether the lead later followed up, and compares a keyword baseline with
+two Laya questions. Try it with
+`ln -s "$PWD/examples/packs/handback-triage" ~/.config/wayfinder/packs/ && wayfinder eval --pack handback-triage`.
+On one user's 368 handbacks, nothing beat always answering "done" (0.73): a useful negative result.
 
 ## Develop
 

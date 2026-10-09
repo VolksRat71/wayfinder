@@ -128,3 +128,32 @@ def test_obsidian_install_copies_plugin_and_never_writes_a_command(tmp_path):
     assert {p.name for p in dest.iterdir()} == {"manifest.json", "main.js"}  # no data.json naming an executable
     with pytest.raises(SystemExit):
         main(["obsidian-install", str(tmp_path / "not-a-vault")])
+
+
+def test_pick_never_chooses_a_baseline(tmp_path, monkeypatch):
+    monkeypatch.setattr(E, "STATE", tmp_path)
+    pack = Pack("p", "", "retrieve", "x", methods=["recent", "bm25"], metric="recall@5")
+    rows = [("s", "retrieve", "recent", 9, 0.4, 0.9, 0.6, ""), ("s", "retrieve", "bm25", 9, 0.3, 0.5, 0.4, "")]
+    assert E.pick(pack, Source("t", tmp_path), rows) == "bm25"
+
+
+def test_choice_pack_scores_methods_against_majority(vault):
+    from wayfinder.data import builder
+    path, _, _ = vault
+
+    @builder("tiny-choice")
+    def tiny(source):
+        return [{"query": "blocked waiting on you", "truth": "follow_up"}, {"query": "all done", "truth": "done"},
+                {"query": "done and merged", "truth": "done"}]
+
+    @M.register("says-blocked")
+    def says_blocked(corpus, query, labels):
+        p = 0.9 if "blocked" in query else 0.1
+        return sorted([("follow_up", p), ("done", 1 - p)], key=lambda x: -x[1])
+
+    pack = Pack("c", "", "choice", "tiny-choice", methods=["says-blocked"], labels={"follow_up": "", "done": ""},
+                per_source=False)
+    rows = {(r[1], r[2]): r for r in E.evaluate(pack, None, emit=lambda r: None)}
+    assert rows[("choice", "majority")][6] == 2 / 3
+    assert rows[("choice", "says-blocked")][6] == 1.0
+    assert rows[("choice/follow_up", "says-blocked")][3] == 1  # per-label recall rows

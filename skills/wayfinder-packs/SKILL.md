@@ -20,12 +20,15 @@ A pack is one decision: what to rank, how to build labelled eval data from histo
 ```toml
 name = "my-pack"
 description = "One line saying what this decides; agents read it via list_packs"
-action = "retrieve"            # retrieve | insert
+action = "retrieve"            # retrieve | insert | choice
 dataset = "my-builder"         # a built-in builder (git-inserts, transcript-reads) or one from pack.py
 methods = ["bm25", "recent", "bm25+recent", "my-method"]
 default = "bm25+recent"
-metric = "mrr"                 # hit@1 | recall@5 | mrr
+metric = "mrr"                 # hit@1 | recall@5 | mrr | accuracy
+baselines = ["recent"]         # compared, never picked as the default
 ```
+
+A `choice` pack classifies text instead of ranking notes. It adds `labels = { name = "description" }`, its rows have `truth` as one label, and its methods return `[(label, score)]`. It is scored against always guessing the most common label, plus each label's recall. Set `per_source = false` when its data doesn't come from a source. `examples/packs/handback-triage` in the wayfinder repo is a full example.
 
 `pack.py` (optional):
 

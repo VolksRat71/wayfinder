@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 
 from . import methods as M
-from .corpus import GitCorpus
+from .corpus import GitCorpus, LabelCorpus
 from .data import BUILDERS
 
 DATA = Path(os.environ.get("XDG_DATA_HOME", "~/.local/share")).expanduser() / "wayfinder"
@@ -60,10 +60,39 @@ def folder_vote(source, ranked):
     return label, mass / (sum(votes.values()) or 1)
 
 
+def classify(pack, method, text):
+    """A choice pack's labels ranked by `method`, scores normalised to sum to 1."""
+    ranked = M.METHODS[method](LabelCorpus(), text, list(pack.labels.items()))
+    total = sum(max(s, 0) for _, s in ranked) or 1
+    return [(label, max(s, 0) / total) for label, s in ranked]
+
+
+def _evaluate_choice(pack, source, names, add):
+    """Accuracy and sel@50 per method; `choice/<label>` rows are that label's recall."""
+    src, rows = (source.name if source else "-"), BUILDERS[pack.dataset](source)
+    if not rows:
+        return
+    label, count = collections.Counter(r["truth"] for r in rows).most_common(1)[0]
+    add((src, "choice", "majority", len(rows), "", "", count / len(rows), ""))
+    for name in names:
+        per = []
+        for r in rows:
+            top, conf = classify(pack, name, r["query"])[0]
+            per.append({"correct": top == r["truth"], "conf": conf, "truth": r["truth"]})
+        add(_class_row(src, "choice", name, per))
+        for lab in pack.labels:
+            if (subset := [p for p in per if p["truth"] == lab]):
+                add(_class_row(src, f"choice/{lab}", name, subset))
+
+
 def evaluate(pack, source, methods=None, emit=print):
     """Yield summary rows (source, action, method, n, hit@1, recall@5, mrr_or_acc, sel@50)."""
-    corpus, rows = GitCorpus(source), BUILDERS[pack.dataset](source)
     names = [m for m in (methods or pack.methods) if M.available(m)]
+    if pack.action == "choice":
+        out = []
+        _evaluate_choice(pack, source, names, lambda row: (out.append(row), emit(row)))
+        return out
+    corpus, rows = GitCorpus(source), BUILDERS[pack.dataset](source)
     groups = ({"retrieve": rows} if pack.action == "retrieve" else
               {"insert_update": [r for r in rows if r["kind"] == "update"],
                "insert_new": [r for r in rows if r["kind"] == "new"]})
@@ -146,20 +175,21 @@ def append_results(rows, path, commit=""):
             f.write("\t".join([datetime.date.today().isoformat(), commit] + [fmt(x) for x in row]) + "\n")
 
 
-METRIC_COLUMN = {"hit@1": 4, "recall@5": 5, "mrr": 6}
-PRIMARY_ACTION = {"retrieve": "retrieve", "insert": "insert_update"}
+METRIC_COLUMN = {"hit@1": 4, "recall@5": 5, "mrr": 6, "accuracy": 6}
+PRIMARY_ACTION = {"retrieve": "retrieve", "insert": "insert_update", "choice": "choice"}
 
 
 def pick(pack, source, rows):
     """Record the pack's best method for this source; the runtime uses it as the default."""
     col = METRIC_COLUMN[pack.metric]
-    scored = [(r[col], r[2]) for r in rows if r[1] == PRIMARY_ACTION[pack.action] and r[2] in pack.methods]
+    scored = [(r[col], r[2]) for r in rows
+              if r[1] == PRIMARY_ACTION[pack.action] and r[2] in pack.methods and r[2] not in pack.baselines]
     if not scored:
         return None
     best = max(scored)[1]
     picks_path = STATE / "picks.json"
     picks = json.loads(picks_path.read_text()) if picks_path.exists() else {}
-    picks.setdefault(str(source.path), {})[pack.name] = best
+    picks.setdefault(str(source.path) if source else "-", {})[pack.name] = best
     picks_path.parent.mkdir(parents=True, exist_ok=True)
     picks_path.write_text(json.dumps(picks, indent=2) + "\n")
     return best
@@ -168,4 +198,4 @@ def pick(pack, source, rows):
 def picked(pack, source):
     path = STATE / "picks.json"
     picks = json.loads(path.read_text()) if path.exists() else {}
-    return picks.get(str(source.path), {}).get(pack.name, pack.default)
+    return picks.get(str(source.path) if source else "-", {}).get(pack.name, pack.default)

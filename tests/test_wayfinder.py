@@ -220,3 +220,9 @@ def test_a_pack_that_fails_to_load_is_skipped(vault, capsys):
     packs = discover(Source("t", path, trust_packs=True))
     assert "broken" not in packs and "notes-retrieve" in packs
     assert "failed to load" in capsys.readouterr().err
+
+
+def test_summary_frontmatter_counts_as_the_description():
+    from wayfinder.corpus import split
+    assert split("---\nsummary: \"one line\"\n---\nbody\n")[0] == "one line"
+    assert split("---\ndescription: d\nsummary: s\n---\nbody\n")[0] == "d"

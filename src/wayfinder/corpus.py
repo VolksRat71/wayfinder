@@ -14,7 +14,7 @@ from pathlib import Path
 
 INDEX_NAMES = {"00 Home.md", "README.md", "MEMORY.md"}
 FRONTMATTER = re.compile(r"\A---\n.*?\n---\n?", re.S)
-DESCRIPTION = re.compile(r"^description:\s*[\"']?(.*?)[\"']?\s*$", re.M)
+DESCRIPTION = re.compile(r"^(?:description|summary):\s*[\"']?(.*?)[\"']?\s*$", re.M)
 MAX_CHARS = 4000
 CONFIG = Path(os.environ.get("WAYFINDER_CONFIG", "~/.config/wayfinder/config.toml")).expanduser()
 

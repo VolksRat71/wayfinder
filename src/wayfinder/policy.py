@@ -2,8 +2,9 @@
 
 The operator fixes the policy when the server starts (`wayfinder mcp --allow NAME`, or
 `[mcp] allow = [...]` in the config). Tool arguments can only pick among allowed sources by
-name; they can never add one. Restricted mode never falls back: an invalid allowlist stops the
-server from starting, and a source that has gone missing or moved fails that call.
+name; they can never add one. Restricted is the default: with no allowlist the server refuses to
+start, and only an explicit --unrestricted opens it up. It never falls back: an invalid allowlist
+stops the server from starting, and a source that has gone missing or moved fails that call.
 
 This is defense in depth inside one process. It does not stop an agent that can read files
 some other way (its own shell or file tools); that takes separate configs per instance plus OS
@@ -83,6 +84,7 @@ class Policy:
 
 def from_options(allow=None, unrestricted=False, config=None):
     """The policy for `wayfinder mcp`. Returns (policy, warning or None); raises PolicyError."""
+    # The warning slot is kept for callers; no mode warns any more, it either runs or refuses.
     config = load_config() if config is None else config
     if allow and unrestricted:
         raise PolicyError("--allow and --unrestricted are mutually exclusive")
@@ -91,7 +93,6 @@ def from_options(allow=None, unrestricted=False, config=None):
     names = allow if allow else config.get("mcp", {}).get("allow")
     if names is not None:
         return Policy.restrict(names, config), None
-    return Policy.unrestricted(), (
-        "wayfinder mcp: no allowlist configured, running UNRESTRICTED (tools accept any folder path). "
-        "Restrict with --allow NAME or [mcp] allow = [...] in the config; pass --unrestricted to "
-        "choose this mode explicitly and silence this warning.")
+    raise PolicyError(
+        "no allowlist configured. Set [mcp] allow = [\"<source name>\", ...] in the config "
+        "(or pass --allow NAME); for local development, pass --unrestricted explicitly.")

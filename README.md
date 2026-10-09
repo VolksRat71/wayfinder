@@ -18,13 +18,21 @@ run `gh auth login && gh auth setup-git` once, or use an SSH key. A bare `GITHUB
 # 1. The CLI. Everything else calls it.
 uv tool install "git+https://github.com/VolksRat71/wayfinder"
 
-# 2. Your agent: Claude Code (inside a session) ...
+# 2. Tell the agent server which notes it may read (it refuses to start without this):
+cat >> ~/.config/wayfinder/config.toml <<'TOML'
+[sources.notes]
+path = "~/notes"
+[mcp]
+allow = ["notes"]
+TOML
+
+# 3. Your agent: Claude Code (inside a session) ...
 /plugin marketplace add VolksRat71/wayfinder
 /plugin install wayfinder@wayfinder
 #    ... and/or Codex
 codex plugin marketplace add VolksRat71/wayfinder && codex plugin add wayfinder@wayfinder
 
-# 3. Optional: Obsidian (desktop), then enable "Wayfinder" under Settings > Community plugins
+# 4. Optional: Obsidian (desktop), then enable "Wayfinder" under Settings > Community plugins
 wayfinder obsidian-install ~/path/to/vault
 ```
 
@@ -93,8 +101,8 @@ Choose the mode when you launch the server:
 ```sh
 wayfinder mcp --allow company-docs --allow tech-notes   # restricted to these configured sources
 wayfinder mcp --unrestricted                            # explicit local-dev mode: any folder path
-wayfinder mcp                                           # uses [mcp] allow from the config if set;
-                                                        # otherwise unrestricted, with a warning
+wayfinder mcp                                           # uses [mcp] allow from the config;
+                                                        # refuses to start if there is none
 ```
 
 **Separate work and personal instances.** The strongest setup inside wayfinder is a separate config
@@ -134,8 +142,12 @@ env = { WAYFINDER_CONFIG = "/Users/you/.config/wayfinder/life.toml" }
 ```
 
 The plugins' bundled server runs plain `wayfinder mcp` with the default config
-(`~/.config/wayfinder/config.toml`). Give that file an `[mcp] allow` too, or disable the bundled
-server and use your own entries.
+(`~/.config/wayfinder/config.toml`), so that file needs an `[mcp] allow` (it's the "work" instance
+above). Add other instances as your own server entries.
+
+**Upgrading from 0.1.** In 0.1, `wayfinder mcp` with no allowlist ran unrestricted and printed a
+warning. From 0.2 it refuses to start. Add `[mcp] allow` to your config, or use `--unrestricted`
+for local development.
 
 **What this does not protect.** These checks are defense in depth inside one process, not a
 security boundary on their own:

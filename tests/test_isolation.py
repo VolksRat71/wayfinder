@@ -168,14 +168,14 @@ def test_config_allowlist_restricts_and_never_falls_back(vaults):
         from_options(config={"mcp": {"allow": ["nope"]}, "sources": {}})
 
 
-def test_unrestricted_mode_is_explicit_or_warned(vaults):
+def test_unrestricted_mode_must_be_explicit(vaults):
     work, _ = vaults
     policy, warning = from_options(unrestricted=True)
     assert not policy.restricted and warning is None
     ok, text = call(create_server(policy), "retrieve", query="deploys", source=str(work))
     assert ok and "ops/deploys.md" in text  # dev mode keeps folder paths
-    policy, warning = from_options()  # nothing configured: today's behavior, but said out loud
-    assert not policy.restricted and "UNRESTRICTED" in warning
+    with pytest.raises(PolicyError, match="no allowlist"):  # nothing configured: refuse, never open
+        from_options()
 
 
 def test_insert_stays_read_only(vaults):

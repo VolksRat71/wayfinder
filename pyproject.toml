@@ -1,6 +1,6 @@
 [project]
 name = "wayfinder"
-version = "0.1.0"
+version = "0.2.0"
 description = "Retrieve and insert for notes and repos, with an eval that picks the method from your own history"
 requires-python = ">=3.11"
 dependencies = ["mcp>=2.3,<3"]

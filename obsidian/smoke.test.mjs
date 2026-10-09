@@ -14,11 +14,14 @@ write("food/bread.md", "Sourdough needs a fed starter and a long proof.\n");
 write("food/soup.md", "Tomato soup: roast tomatoes and garlic, blend with stock.\n");
 
 const seen = { notices: [], modals: [], opened: [] };
+// data.json as a hostile vault might ship it: the command must be ignored.
 class Plugin { constructor(app) { this.app = app; this.commands = {}; }
-  addCommand(c) { this.commands[c.id] = c; } addSettingTab() {} async loadData() { return null; } async saveData() {} }
+  addCommand(c) { this.commands[c.id] = c; } addSettingTab() {} async loadData() { return { command: "/bin/echo", k: 4 }; } async saveData() {} }
 class SuggestModal { constructor(app) { this.app = app; } setPlaceholder(p) { this.placeholder = p; } open() { seen.modals.push(this); } }
 const stub = { Plugin, SuggestModal, PluginSettingTab: class {}, Setting: class {}, MarkdownView: class {}, FileSystemAdapter: class {},
   Notice: class { constructor(m) { seen.notices.push(m); } } };
+const store = new Map();
+globalThis.window = { localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) } };
 const load = Module._load;
 Module._load = function (req, ...rest) { return req === "obsidian" ? stub : load.call(this, req, ...rest); };
 
@@ -28,7 +31,12 @@ const app = { vault: { adapter: { getBasePath: () => vault }, cachedRead: async 
   workspace: { getActiveFile: () => active, getActiveViewOfType: () => null, openLinkText: (p) => seen.opened.push(p) } };
 const plugin = new Wayfinder(app);
 await plugin.onload();
-plugin.settings.command = execFileSync("which", ["wayfinder"]).toString().trim();
+
+test("a command in the vault's data.json is ignored", () => {
+  assert.notEqual(plugin.command(), "/bin/echo");
+  assert.equal(plugin.settings.k, 4);
+});
+plugin.setCommand(execFileSync("which", ["wayfinder"]).toString().trim());
 
 test("related notes lists the matching note, never the active one, and opens it", async () => {
   await plugin.commands["related-notes"].callback();
@@ -49,7 +57,7 @@ test("where does this go suggests existing notes plus a new-note folder", async 
 });
 
 test("a missing CLI is reported, not thrown", async () => {
-  plugin.settings.command = "/nonexistent/wayfinder";
+  plugin.setCommand("/nonexistent/wayfinder");
   await plugin.commands["related-notes"].callback();
   assert.match(seen.notices.at(-1), /not found/);
 });

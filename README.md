@@ -42,7 +42,7 @@ Then enable **Wayfinder** under Settings > Community plugins. It adds two comman
 - **Related notes** opens the notes that best match.
 - **Where does this go?** lists the existing notes this text belongs in, plus a folder for a new note.
 
-The plugin calls the local CLI: there is no server and nothing leaves your machine. Re-run the install command to upgrade; your plugin settings are kept.
+The plugin calls the local CLI: there is no server and nothing leaves your machine. Re-run the install command to upgrade. The plugin finds the CLI in `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin`. A custom path set in its settings is stored on that device only, never in the vault, so a synced or committed vault can't change which program runs.
 
 ## Use
 

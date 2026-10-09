@@ -26,17 +26,29 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
 var import_child_process = require("child_process");
+var import_fs = require("fs");
 var import_os = require("os");
 var import_path = require("path");
-var DEFAULTS = { command: (0, import_path.join)((0, import_os.homedir)(), ".local", "bin", "wayfinder"), k: 8 };
+var COMMAND_KEY = "wayfinder-command";
+var CANDIDATES = [(0, import_path.join)((0, import_os.homedir)(), ".local", "bin", "wayfinder"), "/opt/homebrew/bin/wayfinder", "/usr/local/bin/wayfinder"];
+var DEFAULTS = { k: 8 };
 var MAX_CHARS = 4e3;
 var Wayfinder = class extends import_obsidian.Plugin {
   constructor() {
     super(...arguments);
     this.settings = DEFAULTS;
   }
+  /** The CLI to run: this device's override, else the first standard install location found. */
+  command() {
+    return window.localStorage.getItem(COMMAND_KEY) || CANDIDATES.find((p) => (0, import_fs.existsSync)(p)) || CANDIDATES[0];
+  }
+  setCommand(path) {
+    if (path) window.localStorage.setItem(COMMAND_KEY, path);
+    else window.localStorage.removeItem(COMMAND_KEY);
+  }
   async onload() {
-    this.settings = Object.assign({}, DEFAULTS, await this.loadData());
+    const data = await this.loadData();
+    this.settings = { k: Number(data?.k) > 0 ? Number(data.k) : DEFAULTS.k };
     this.addSettingTab(new WayfinderSettings(this.app, this));
     this.addCommand({ id: "related-notes", name: "Related notes", callback: () => this.related() });
     this.addCommand({ id: "where-does-this-go", name: "Where does this go?", callback: () => this.where() });
@@ -59,14 +71,15 @@ var Wayfinder = class extends import_obsidian.Plugin {
     const vault = this.app.vault.adapter.getBasePath();
     const full = [...args, "--source", vault, "-k", String(this.settings.k), "--json"];
     return new Promise((resolve, reject) => {
+      const command = this.command();
       const child = (0, import_child_process.execFile)(
-        this.settings.command,
+        command,
         full,
         { timeout: 6e4, maxBuffer: 10 * 1024 * 1024 },
         (err, stdout, stderr) => {
           if (err) {
             const missing = err.code === "ENOENT";
-            reject(new Error(missing ? `wayfinder CLI not found at ${this.settings.command}; set the path in settings.` : (stderr || err.message).trim().split("\n").pop()));
+            reject(new Error(missing ? `wayfinder CLI not found at ${command}; set the path in settings.` : (stderr || err.message).trim().split("\n").pop()));
           } else {
             try {
               resolve(JSON.parse(stdout));
@@ -134,10 +147,7 @@ var WayfinderSettings = class extends import_obsidian.PluginSettingTab {
   }
   display() {
     this.containerEl.empty();
-    new import_obsidian.Setting(this.containerEl).setName("wayfinder command").setDesc("Full path to the wayfinder CLI (uv tool install puts it in ~/.local/bin).").addText((t) => t.setValue(this.plugin.settings.command).onChange(async (v) => {
-      this.plugin.settings.command = v.trim();
-      await this.plugin.saveData(this.plugin.settings);
-    }));
+    new import_obsidian.Setting(this.containerEl).setName("wayfinder command").setDesc("Full path to the wayfinder CLI. Leave empty to use ~/.local/bin, /opt/homebrew/bin or /usr/local/bin. Stored on this device only, never in the vault.").addText((t) => t.setPlaceholder(this.plugin.command()).setValue(window.localStorage.getItem(COMMAND_KEY) ?? "").onChange((v) => this.plugin.setCommand(v.trim())));
     new import_obsidian.Setting(this.containerEl).setName("Results").setDesc("How many notes to show.").addText((t) => t.setValue(String(this.plugin.settings.k)).onChange(async (v) => {
       const k = parseInt(v, 10);
       if (k > 0) {

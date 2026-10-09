@@ -120,14 +120,11 @@ def test_insert_excludes_the_note_being_filed_and_votes_on_text(vault):
     assert result["new_note_folder"]["folder"] == "ops"  # recently edited food notes must not outvote the match
 
 
-def test_obsidian_install_copies_plugin_and_keeps_user_settings(tmp_path):
+def test_obsidian_install_copies_plugin_and_never_writes_a_command(tmp_path):
     from wayfinder.cli import main
     (tmp_path / ".obsidian").mkdir()
     main(["obsidian-install", str(tmp_path)])
     dest = tmp_path / ".obsidian" / "plugins" / "wayfinder"
-    assert {"manifest.json", "main.js", "data.json"} <= {p.name for p in dest.iterdir()}
-    (dest / "data.json").write_text('{"command": "/custom/wayfinder"}')
-    main(["obsidian-install", str(tmp_path)])  # re-install (upgrade) must not clobber settings
-    assert "/custom/wayfinder" in (dest / "data.json").read_text()
+    assert {p.name for p in dest.iterdir()} == {"manifest.json", "main.js"}  # no data.json naming an executable
     with pytest.raises(SystemExit):
         main(["obsidian-install", str(tmp_path / "not-a-vault")])

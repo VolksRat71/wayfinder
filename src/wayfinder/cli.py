@@ -67,11 +67,16 @@ def cmd_obsidian_install(args):
     dest.mkdir(parents=True, exist_ok=True)
     for name in ("manifest.json", "main.js"):
         shutil.copy2(Path(__file__).parent / "obsidian_plugin" / name, dest / name)
-    settings = dest / "data.json"
-    if not settings.exists():  # Obsidian doesn't get the shell PATH, so record where this CLI lives
-        settings.write_text(json.dumps({"command": shutil.which("wayfinder") or sys.argv[0]}) + "\n")
     print(f"Installed to {dest}. In Obsidian: Settings > Community plugins > enable Wayfinder, then run "
           "'Wayfinder: Related notes' or 'Wayfinder: Where does this go?' from the command palette.")
+    # The plugin never takes the CLI path from the vault (a synced or committed data.json could
+    # point it at anything); it checks the standard install locations instead.
+    here = shutil.which("wayfinder")
+    standard = [Path("~/.local/bin/wayfinder").expanduser(), Path("/opt/homebrew/bin/wayfinder"),
+                Path("/usr/local/bin/wayfinder")]
+    if here and Path(here) not in standard:
+        print(f"This CLI is at {here}, which the plugin won't find by itself: set it in the plugin's settings "
+              "(stored on this device only).")
 
 
 def cmd_packs(args):

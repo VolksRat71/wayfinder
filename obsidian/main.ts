@@ -1,12 +1,18 @@
 // Wayfinder for Obsidian: a thin client of the local `wayfinder` CLI (no server, no network).
 import { App, FileSystemAdapter, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, SuggestModal } from "obsidian";
 import { execFile } from "child_process";
+import { existsSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
-interface Settings { command: string; k: number }
-// GUI apps on macOS don't get the shell PATH, so default to where `uv tool install` puts it.
-const DEFAULTS: Settings = { command: join(homedir(), ".local", "bin", "wayfinder"), k: 8 };
+// Which executable runs must never come from the vault: data.json can be synced or committed by
+// someone else. So the CLI path lives in this device's localStorage, never in plugin data.
+// GUI apps on macOS don't get the shell PATH, so look where `uv tool install` / Homebrew put it.
+const COMMAND_KEY = "wayfinder-command";
+const CANDIDATES = [join(homedir(), ".local", "bin", "wayfinder"), "/opt/homebrew/bin/wayfinder", "/usr/local/bin/wayfinder"];
+
+interface Settings { k: number }
+const DEFAULTS: Settings = { k: 8 };
 const MAX_CHARS = 4000;
 
 interface Note { path: string; score: number; description: string }
@@ -16,8 +22,19 @@ type Item = { note: Note } | { folder: string; confidence: number };
 export default class Wayfinder extends Plugin {
   settings: Settings = DEFAULTS;
 
+  /** The CLI to run: this device's override, else the first standard install location found. */
+  command(): string {
+    return window.localStorage.getItem(COMMAND_KEY) || CANDIDATES.find((p) => existsSync(p)) || CANDIDATES[0];
+  }
+
+  setCommand(path: string) {
+    if (path) window.localStorage.setItem(COMMAND_KEY, path);
+    else window.localStorage.removeItem(COMMAND_KEY);
+  }
+
   async onload() {
-    this.settings = Object.assign({}, DEFAULTS, await this.loadData());
+    const data = await this.loadData();  // only `k` is read; anything else in data.json is ignored
+    this.settings = { k: Number(data?.k) > 0 ? Number(data.k) : DEFAULTS.k };
     this.addSettingTab(new WayfinderSettings(this.app, this));
     this.addCommand({ id: "related-notes", name: "Related notes", callback: () => this.related() });
     this.addCommand({ id: "where-does-this-go", name: "Where does this go?", callback: () => this.where() });
@@ -43,11 +60,12 @@ export default class Wayfinder extends Plugin {
     const vault = (this.app.vault.adapter as FileSystemAdapter).getBasePath();
     const full = [...args, "--source", vault, "-k", String(this.settings.k), "--json"];
     return new Promise((resolve, reject) => {
-      const child = execFile(this.settings.command, full, { timeout: 60_000, maxBuffer: 10 * 1024 * 1024 },
+      const command = this.command();
+      const child = execFile(command, full, { timeout: 60_000, maxBuffer: 10 * 1024 * 1024 },
         (err, stdout, stderr) => {
           if (err) {
             const missing = (err as NodeJS.ErrnoException).code === "ENOENT";
-            reject(new Error(missing ? `wayfinder CLI not found at ${this.settings.command}; set the path in settings.`
+            reject(new Error(missing ? `wayfinder CLI not found at ${command}; set the path in settings.`
                                      : (stderr || err.message).trim().split("\n").pop()));
           } else {
             try { resolve(JSON.parse(stdout)); } catch { reject(new Error("wayfinder returned something that isn't JSON.")); }
@@ -117,11 +135,10 @@ class WayfinderSettings extends PluginSettingTab {
     this.containerEl.empty();
     new Setting(this.containerEl)
       .setName("wayfinder command")
-      .setDesc("Full path to the wayfinder CLI (uv tool install puts it in ~/.local/bin).")
-      .addText((t) => t.setValue(this.plugin.settings.command).onChange(async (v) => {
-        this.plugin.settings.command = v.trim();
-        await this.plugin.saveData(this.plugin.settings);
-      }));
+      .setDesc("Full path to the wayfinder CLI. Leave empty to use ~/.local/bin, /opt/homebrew/bin or /usr/local/bin. " +
+               "Stored on this device only, never in the vault.")
+      .addText((t) => t.setPlaceholder(this.plugin.command()).setValue(window.localStorage.getItem(COMMAND_KEY) ?? "")
+        .onChange((v) => this.plugin.setCommand(v.trim())));
     new Setting(this.containerEl)
       .setName("Results")
       .setDesc("How many notes to show.")

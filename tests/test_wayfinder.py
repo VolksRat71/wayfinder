@@ -226,3 +226,18 @@ def test_summary_frontmatter_counts_as_the_description():
     from wayfinder.corpus import split
     assert split("---\nsummary: \"one line\"\n---\nbody\n")[0] == "one line"
     assert split("---\ndescription: d\nsummary: s\n---\nbody\n")[0] == "d"
+
+
+def test_init_writes_a_first_config_and_never_overwrites(tmp_path, monkeypatch, capsys):
+    from wayfinder import cli
+    from wayfinder import corpus as C
+    monkeypatch.setattr(C, "CONFIG", tmp_path / "cfg" / "config.toml")
+    (tmp_path / "My Notes").mkdir()
+    cli.main(["init", str(tmp_path / "My Notes")])
+    text = C.CONFIG.read_text()
+    assert "[sources.my-notes]" in text and 'allow = ["my-notes"]' in text
+    from wayfinder.policy import Policy
+    assert Policy.restrict(["my-notes"]).names() == ["my-notes"]  # the written config is valid
+    with pytest.raises(SystemExit):
+        cli.main(["init", str(tmp_path / "My Notes"), "--name", "other"])
+    assert C.CONFIG.read_text() == text

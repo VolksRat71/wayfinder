@@ -14,37 +14,20 @@ title. See [docs/benchmarks.md](docs/benchmarks.md).
 
 ## Quick start
 
-You need [uv](https://docs.astral.sh/uv/) (`brew install uv`) and git access to this private repo:
-run `gh auth login && gh auth setup-git` once, or use an SSH key. A bare `GITHUB_TOKEN` is not enough.
+You need [uv](https://docs.astral.sh/uv/) (`brew install uv`).
 
 ```sh
-# 1. The CLI. Everything else calls it.
-uv tool install "git+https://github.com/VolksRat71/wayfinder"
-
-# 2. Tell the agent server which notes it may read (it refuses to start without this):
-cat >> ~/.config/wayfinder/config.toml <<'TOML'
-[sources.notes]
-path = "~/notes"
-[mcp]
-allow = ["notes"]
-TOML
-
-# 3. Your agent: Claude Code (inside a session) ...
-/plugin marketplace add VolksRat71/wayfinder
-/plugin install wayfinder@wayfinder
-#    ... and/or Codex
-codex plugin marketplace add VolksRat71/wayfinder && codex plugin add wayfinder@wayfinder
-
-# 4. Optional: Obsidian (desktop), then enable "Wayfinder" under Settings > Community plugins
-wayfinder obsidian-install ~/path/to/vault
+uv tool install git+https://github.com/VolksRat71/wayfinder   # 1. the CLI
+wayfinder init ~/notes                                         # 2. your notes folder (any folder of .md files)
+claude plugin install wayfinder --marketplace VolksRat71/wayfinder   # 3. Claude Code
 ```
 
-Then point it at a folder of markdown notes:
+That's it. Ask Claude something your notes answer, and it will use wayfinder to find them.
 
-```sh
-wayfinder retrieve "how do we rotate the deploy keys" --source ~/notes
-wayfinder eval --source ~/notes --pick     # optional: score the methods on your own history
-```
+- **Codex instead of, or as well as, Claude:** `codex plugin marketplace add VolksRat71/wayfinder && codex plugin add wayfinder@wayfinder`
+- **Obsidian (desktop):** `wayfinder obsidian-install ~/notes`, then enable "Wayfinder" under Settings > Community plugins.
+- **More than one notes folder:** add each to `~/.config/wayfinder/config.toml` (see `examples/config.toml`), and list the ones agents may use under `[mcp] allow`.
+- **Score it on your own notes:** `wayfinder eval --source ~/notes --pick`. This needs the folder to be a git repo.
 
 **What it reads.** wayfinder itself sends nothing anywhere. Retrieve and insert read the notes
 folder you point them at; when an agent calls them, the results (paths and note descriptions) go

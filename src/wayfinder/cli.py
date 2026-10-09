@@ -1,12 +1,14 @@
 """wayfinder: retrieve / insert over notes, and the eval that picks how."""
 import argparse
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
 
 from . import evaluate as E
 from . import live
+from . import corpus
 from .corpus import Source
 from .packs import discover
 
@@ -91,6 +93,24 @@ def cmd_obsidian_install(args):
               "(stored on this device only).")
 
 
+def cmd_init(args):
+    """First-time setup: one source, allowlisted for the MCP server. Never edits an existing config."""
+    folder = Path(args.folder).expanduser().resolve()
+    if not folder.is_dir():
+        sys.exit(f"{folder} is not a folder")
+    name = args.name or re.sub(r"[^a-z0-9]+", "-", folder.name.lower()).strip("-") or "notes"
+    home = str(Path.home())
+    shown = "~" + str(folder)[len(home):] if str(folder).startswith(home) else str(folder)
+    snippet = f'[sources.{name}]\npath = "{shown}"\n\n[mcp]\nallow = ["{name}"]\n'
+    if corpus.CONFIG.exists():
+        sys.exit(f"{corpus.CONFIG} already exists, so it was left unchanged. To add this folder, put a\n"
+                 f"[sources.{name}] table in it and add \"{name}\" to [mcp] allow:\n\n{snippet}")
+    corpus.CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    corpus.CONFIG.write_text("# wayfinder config: see examples/config.toml for every option.\n" + snippet)
+    print(f"Wrote {corpus.CONFIG}: source \"{name}\" = {shown}, allowed for agents.\n"
+          f"Try: wayfinder retrieve \"your question\" --source {name}")
+
+
 def cmd_packs(args):
     source = Source.resolve(args.source[0]) if args.source else None
     for pack in discover(source).values():
@@ -127,6 +147,10 @@ def main(argv=None):
     o = sub.add_parser("obsidian-install", help="install the Obsidian plugin into a vault")
     o.add_argument("vault")
     o.set_defaults(fn=cmd_obsidian_install)
+    n = sub.add_parser("init", help="first-time setup: register a notes folder and allow agents to use it")
+    n.add_argument("folder")
+    n.add_argument("--name", help="source name (default: the folder name)")
+    n.set_defaults(fn=cmd_init)
     k = sub.add_parser("packs", help="list available packs")
     k.add_argument("--source", action="append")
     k.set_defaults(fn=cmd_packs)

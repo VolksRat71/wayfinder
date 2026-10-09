@@ -35,8 +35,9 @@ wayfinder retrieve "how do we rotate the deploy keys" --source ~/notes
 wayfinder eval --source ~/notes --pick     # optional: score the methods on your own history
 ```
 
-**What it reads.** Everything stays on your machine. Retrieve and insert read the notes folder you
-point them at. Only `wayfinder eval` reads more: the git history of that folder and your agent
+**What it reads.** wayfinder itself sends nothing anywhere. Retrieve and insert read the notes
+folder you point them at; when an agent calls them, the results (paths and note descriptions) go
+into that agent's conversation like any other tool output. Only `wayfinder eval` reads more: the git history of that folder and your agent
 transcripts (`~/.claude/projects`, `~/.codex/sessions`), which it uses to build its test
 questions. It writes results to `~/.local/share/wayfinder/` and `~/.local/state/wayfinder/`.
 
@@ -62,6 +63,92 @@ Two commands, which work on the selection, or on the whole note if nothing is se
 - **Where does this go?** lists the existing notes this text belongs in, plus a folder for a new note.
 
 The plugin calls the local CLI: there is no server and no network use. It looks for the CLI in `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin`. A custom path set in its settings is stored on that device only, never in the vault, so a synced or committed vault can't change which program runs.
+
+## Isolation: restricted MCP mode
+
+Keep separate vaults separate when agents use them, such as company docs, work and tech notes, and
+personal-life notes. Each MCP server gets a fixed allowlist of sources from its operator config at
+startup. **Tool arguments can only choose among those names; they can't add a source.**
+
+Inside a restricted server:
+- Every tool (`retrieve`, `insert`, `list_packs`, `run_pack`) only reads allowed sources, by
+  **exact configured name**. Folder paths, `..` traversal, `~` and unknown or disallowed names are all
+  refused with the same message, which lists only the allowed names. It never says whether a refused
+  name exists elsewhere.
+- `list_sources` lists only allowed sources. If exactly one source is allowed it's the default;
+  with several, the agent must name one. There is no fallback to the current directory.
+- Files are notes only if their real path is inside the source. Symlinks pointing out of it (file or
+  folder) are skipped, and the check is repeated at read time. This applies in every mode.
+- Each call re-checks its source. If the folder is gone, or its path now resolves somewhere else
+  (for example, swapped for a symlink), that call fails. Nothing falls back to unrestricted access.
+- An invalid allowlist (empty, a name that isn't configured, a missing folder) stops the server
+  from starting.
+- Unexpected errors reach the agent and the server log as one generic line, without a traceback,
+  path or note text.
+- Embedding caches are keyed by source, so vaults never share vectors.
+- `insert` stays a read-only placement suggestion.
+
+Choose the mode when you launch the server:
+
+```sh
+wayfinder mcp --allow company-docs --allow tech-notes   # restricted to these configured sources
+wayfinder mcp --unrestricted                            # explicit local-dev mode: any folder path
+wayfinder mcp                                           # uses [mcp] allow from the config if set;
+                                                        # otherwise unrestricted, with a warning
+```
+
+**Separate work and personal instances.** The strongest setup inside wayfinder is a separate config
+file per instance, so the work server's config doesn't contain the personal vault at all:
+
+```toml
+# ~/.config/wayfinder/work.toml
+[sources.company-docs]
+path = "~/work/company-docs"
+[sources.tech-notes]
+path = "~/notes/tech"
+[mcp]
+allow = ["company-docs", "tech-notes"]
+```
+
+```toml
+# ~/.config/wayfinder/life.toml
+[sources.life-notes]
+path = "~/notes/life"
+[mcp]
+allow = ["life-notes"]
+```
+
+Point each server at its own config: in Claude Code, a project-scoped `.mcp.json` per workspace;
+in Codex, an entry in `~/.codex/config.toml`:
+
+```json
+{ "mcpServers": { "wayfinder-work": { "command": "wayfinder", "args": ["mcp"],
+    "env": { "WAYFINDER_CONFIG": "${HOME}/.config/wayfinder/work.toml" } } } }
+```
+
+```toml
+[mcp_servers.wayfinder-life]
+command = "wayfinder"
+args = ["mcp"]
+env = { WAYFINDER_CONFIG = "/Users/you/.config/wayfinder/life.toml" }
+```
+
+The plugins' bundled server runs plain `wayfinder mcp` with the default config
+(`~/.config/wayfinder/config.toml`). Give that file an `[mcp] allow` too, or disable the bundled
+server and use your own entries.
+
+**What this does not protect.** These checks are defense in depth inside one process, not a
+security boundary on their own:
+- An agent with its own shell or file tools (Claude Code's Read/Bash, Codex's shell) can read
+  anything your OS user can, whatever wayfinder allows. Restricted mode does not protect against
+  such an agent.
+- The CLI and the Obsidian plugin are run by you and stay unrestricted. `wayfinder eval` reads
+  git history and your agent transcripts.
+- Packs in `~/.config/wayfinder/packs/`, and repo packs you've marked `trust_packs`, are code you
+  chose to run.
+- For real isolation, also run each instance as its own process with its own config, and use OS
+  or container filesystem permissions: a separate macOS user, or a container that mounts only
+  the allowed folders, read-only.
 
 ## Use
 

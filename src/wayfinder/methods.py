@@ -121,11 +121,15 @@ def embed(texts):
 @register("minilm")
 def minilm(corpus, query, notes):
     import torch
-    missing = [n for n in notes if n not in _vectors]
+    # Keyed by source too: two vaults can hold the same relative path with the same mtime
+    # (a copied note), and must never share each other's vectors.
+    scope = str(getattr(getattr(corpus, "source", None), "path", ""))
+    keys = [(scope, *n) for n in notes]
+    missing = [(k, n) for k, n in zip(keys, notes) if k not in _vectors]
     if missing:
-        for key, vec in zip(missing, embed([corpus.doc(*n) for n in missing])):
+        for (key, _), vec in zip(missing, embed([corpus.doc(*n) for _, n in missing])):
             _vectors[key] = vec
-    sims = (torch.stack([_vectors[n] for n in notes]) @ embed([query])[0]).tolist()
+    sims = (torch.stack([_vectors[k] for k in keys]) @ embed([query])[0]).tolist()
     return sorted(zip((rel for rel, _ in notes), sims), key=lambda x: -x[1])
 
 

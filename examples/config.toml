@@ -1,5 +1,10 @@
 # ~/.config/wayfinder/config.toml  (optional; any folder works with zero config)
 
+# Restricted MCP mode: `wayfinder mcp` only serves these sources (names below), and tools can't
+# add others. Omit to run unrestricted (with a warning); see the README's Isolation section.
+# [mcp]
+# allow = ["notes"]
+
 # Where agent transcripts live, for the retrieve eval. Claude Code's default:
 transcripts = ["~/.claude/projects"]
 

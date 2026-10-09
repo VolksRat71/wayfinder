@@ -10,7 +10,7 @@ Two read-only tools over a folder of markdown notes (an Obsidian vault, a `docs/
 - `retrieve(query, source?, k?)`: the notes most likely to answer a question, best first, with each note's `description`.
 - `insert(text, source?, k?)`: where new text belongs. It returns the existing notes it most likely extends, best first, plus `new_note_folder`, the folder to use if it should be a new note instead.
 
-`source` is a configured name from `list_sources`, or any folder path. If you leave it out, the tools use the source that contains the current directory. Pass a path whenever you know which vault or docs folder you mean.
+`source` is a name from `list_sources`. A server may be restricted to certain sources. If it is, it rejects folder paths and any name it doesn't list. Treat a refusal as the boundary it is: don't try paths, other names or your own file tools to reach that vault. An unrestricted server also accepts a folder path. When only one source is available you can leave `source` out.
 
 ## Retrieve
 

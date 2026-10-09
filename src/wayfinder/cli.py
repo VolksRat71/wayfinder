@@ -63,7 +63,7 @@ def cmd_insert(args):
 
 def cmd_mcp(args):
     from .mcp_server import main as serve
-    serve()
+    serve(allow=args.allow, unrestricted=args.unrestricted)
 
 
 def cmd_obsidian_install(args):
@@ -113,7 +113,12 @@ def main(argv=None):
         c.add_argument("--exclude", action="append", help="note path (relative to the source) to leave out, e.g. "
                        "the note being filed (repeatable)")
         c.set_defaults(fn=fn)
-    sub.add_parser("mcp", help="run the stdio MCP server").set_defaults(fn=cmd_mcp)
+    m = sub.add_parser("mcp", help="run the stdio MCP server")
+    m.add_argument("--allow", action="append", metavar="NAME",
+                   help="restrict this server to these configured sources (repeatable); tool arguments can't add more")
+    m.add_argument("--unrestricted", action="store_true",
+                   help="explicit local-dev mode: tools accept any folder path")
+    m.set_defaults(fn=cmd_mcp)
     o = sub.add_parser("obsidian-install", help="install the Obsidian plugin into a vault")
     o.add_argument("vault")
     o.set_defaults(fn=cmd_obsidian_install)

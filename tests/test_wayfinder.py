@@ -105,8 +105,9 @@ def test_live_retrieve_and_insert_read_the_working_tree(vault):
 
 def test_mcp_server_registers_read_only_tools():
     import asyncio
-    from wayfinder.mcp_server import server
-    tools = {t.name: t for t in asyncio.run(server.list_tools())}
+    from wayfinder.mcp_server import create_server
+    from wayfinder.policy import Policy
+    tools = {t.name: t for t in asyncio.run(create_server(Policy.unrestricted()).list_tools())}
     assert {"retrieve", "insert", "list_sources", "list_packs", "run_pack"} <= tools.keys()
     assert all(t.annotations.read_only_hint for t in tools.values())
 

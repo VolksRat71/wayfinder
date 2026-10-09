@@ -12,10 +12,18 @@ PRUNE = {".git", ".obsidian", ".trash", "node_modules", ".venv"}
 
 
 class LiveCorpus(_Docs):
-    """Notes on disk now. A note's key is `rel@mtime_ns`, so caches drop it when it changes."""
+    """Notes on disk now. A note's key is `rel@mtime_ns`, so caches drop it when it changes.
+
+    Only files whose real path is inside the source are notes: a symlink pointing out of the
+    source is skipped, and os.walk does not descend into symlinked folders.
+    """
 
     def __init__(self, source):
         self.source, self.now, self.cache, self.mtimes = source, time.time(), {}, {}
+        self.root = Path(os.path.realpath(source.path))
+
+    def inside(self, path):
+        return Path(os.path.realpath(path)).is_relative_to(self.root)
 
     def at(self, _snapshot=None):
         notes = []
@@ -24,15 +32,16 @@ class LiveCorpus(_Docs):
             for name in filenames:
                 full = Path(dirpath) / name
                 rel = full.relative_to(self.source.path).as_posix()
-                if self.source.note(self.source.prefix + rel):
+                if self.source.note(self.source.prefix + rel) and self.inside(full):
                     self.mtimes[rel] = full.stat().st_mtime
                     notes.append((rel, f"{rel}@{full.stat().st_mtime_ns}"))
         return notes
 
     def blob(self, key):
         if key not in self.cache:
-            rel = key.rsplit("@", 1)[0]
-            self.cache[key] = split((self.source.path / rel).read_text(encoding="utf-8", errors="replace"))
+            path = self.source.path / key.rsplit("@", 1)[0]
+            # Checked again at read time, in case the file was swapped for a symlink after listing.
+            self.cache[key] = split(path.read_text(encoding="utf-8", errors="replace")) if self.inside(path) else ("", "")
         return self.cache[key]
 
     def age_days(self, rel):

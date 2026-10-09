@@ -1,5 +1,6 @@
 """The runtime: retrieve / insert against a source's files as they are now."""
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -9,6 +10,16 @@ from .evaluate import classify, folder_vote, picked
 from .packs import discover
 
 PRUNE = {".git", ".obsidian", ".trash", "node_modules", ".venv"}
+
+
+def _opened_path(fd):
+    """Where an open file really lives, asked of the OS about the descriptor (not the name)."""
+    if sys.platform == "darwin":
+        import fcntl
+        return fcntl.fcntl(fd, fcntl.F_GETPATH, bytes(1024)).split(b"\0", 1)[0].decode()
+    if os.path.isdir("/proc/self/fd"):
+        return os.readlink(f"/proc/self/fd/{fd}")
+    return None
 
 
 class LiveCorpus(_Docs):
@@ -37,11 +48,30 @@ class LiveCorpus(_Docs):
                     notes.append((rel, f"{rel}@{full.stat().st_mtime_ns}"))
         return notes
 
+    def read(self, path):
+        """The file's text, only if the file actually opened lives inside the source.
+
+        Open first, then ask where the descriptor points, so a file or folder swapped for a
+        symlink between listing and reading can't redirect the read outside the source.
+        """
+        try:
+            fd = os.open(path, os.O_RDONLY)
+        except OSError:
+            return None
+        with os.fdopen(fd, "rb") as f:
+            real = _opened_path(f.fileno())
+            if real is None:
+                # ponytail: no fd-path API on this platform, so the check is by name and can race;
+                # macOS and Linux use the descriptor.
+                real = os.path.realpath(path)
+            if not Path(real).is_relative_to(self.root):
+                return None
+            return f.read().decode("utf-8", "replace")
+
     def blob(self, key):
         if key not in self.cache:
-            path = self.source.path / key.rsplit("@", 1)[0]
-            # Checked again at read time, in case the file was swapped for a symlink after listing.
-            self.cache[key] = split(path.read_text(encoding="utf-8", errors="replace")) if self.inside(path) else ("", "")
+            text = self.read(self.source.path / key.rsplit("@", 1)[0])
+            self.cache[key] = split(text) if text is not None else ("", "")
         return self.cache[key]
 
     def age_days(self, rel):

@@ -183,3 +183,31 @@ def test_insert_stays_read_only(vaults):
     before = {p: p.read_bytes() for p in work.rglob("*") if p.is_file()}
     ok, _ = call(restricted("work"), "insert", text="Deploys need a rollback plan.", source="work")
     assert ok and before == {p: p.read_bytes() for p in work.rglob("*") if p.is_file()}
+
+
+def test_swap_between_listing_and_open_is_caught_on_the_descriptor(vaults, monkeypatch):
+    """Simulate the race: the attacker swaps the note for a symlink at the very moment it is opened."""
+    work, life = vaults
+    corpus = live.LiveCorpus(C.Source.resolve("work"))
+    notes = dict(corpus.at())
+    target = work / "ops" / "oncall.md"
+    real_open = os.open
+
+    def racing_open(path, flags, *args, **kwargs):
+        if str(path) == str(target):
+            target.unlink()
+            os.symlink(life / "health" / "doctor.md", target)
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(live.os, "open", racing_open)
+    assert SECRET not in corpus.doc("ops/oncall.md", notes["ops/oncall.md"])
+
+
+def test_opened_path_reports_the_real_file(tmp_path):
+    (tmp_path / "real.md").write_text("x")
+    os.symlink(tmp_path / "real.md", tmp_path / "link.md")
+    fd = os.open(tmp_path / "link.md", os.O_RDONLY)
+    try:
+        assert os.path.realpath(live._opened_path(fd)) == os.path.realpath(tmp_path / "real.md")
+    finally:
+        os.close(fd)

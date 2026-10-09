@@ -209,3 +209,14 @@ def test_pick_keeps_the_default_on_ties_and_small_evals(tmp_path, monkeypatch):
     assert E.pick(pack, Source("t", tmp_path), small) == "bm25+recent"
     better = [("s", "retrieve", "zzz", 50, 0.3, 0.8, 0.4, ""), ("s", "retrieve", "bm25+recent", 50, 0.3, 0.5, 0.4, "")]
     assert E.pick(pack, Source("t", tmp_path), better) == "zzz"
+
+
+def test_a_pack_that_fails_to_load_is_skipped(vault, capsys):
+    path, _, _ = vault
+    bad = path / ".wayfinder" / "packs" / "broken"
+    bad.mkdir(parents=True)
+    (bad / "pack.toml").write_text('name = "broken"\ndescription = ""\naction = "retrieve"\ndataset = "x"\n')
+    (bad / "pack.py").write_text("raise ImportError('needs a newer wayfinder')\n")
+    packs = discover(Source("t", path, trust_packs=True))
+    assert "broken" not in packs and "notes-retrieve" in packs
+    assert "failed to load" in capsys.readouterr().err

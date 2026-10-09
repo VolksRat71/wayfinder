@@ -56,6 +56,10 @@ def discover(source=None):
                 print(f"wayfinder: skipped {d} (pack.py not run: set trust_packs = true for this source "
                       "in ~/.config/wayfinder/config.toml to allow it)", file=sys.stderr)
                 continue
-            pack = _load(d)
+            try:
+                pack = _load(d)
+            except Exception as e:  # one broken pack must not take down retrieve/insert for the rest
+                print(f"wayfinder: skipped {d} (failed to load: {type(e).__name__})", file=sys.stderr)
+                continue
             packs[pack.name] = pack
     return packs

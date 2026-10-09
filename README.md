@@ -9,40 +9,59 @@ The eval mines what already happened (git history for inserts, Claude Code and C
 for retrieve), scores each method against it, and `--pick` makes the winner your default. On the first
 two vaults it was run on, plain BM25 plus recency beat embeddings and the Laya decision model.
 
-## Install
+## Quick start
+
+You need [uv](https://docs.astral.sh/uv/) (`brew install uv`) and git access to this private repo:
+run `gh auth login && gh auth setup-git` once, or use an SSH key. A bare `GITHUB_TOKEN` is not enough.
 
 ```sh
-uv tool install "git+https://github.com/VolksRat71/wayfinder"            # base: no ML dependencies
-uv tool install "wayfinder[embed,laya] @ git+https://github.com/VolksRat71/wayfinder"   # optional methods
-```
+# 1. The CLI. Everything else calls it.
+uv tool install "git+https://github.com/VolksRat71/wayfinder"
 
-The repo is private, so `git` must already be able to reach it (`gh auth login && gh auth setup-git`, or an SSH key).
-
-### Agents (Claude Code, Codex)
-
-The plugins add read-only MCP tools (`retrieve`, `insert`, `list_sources`, `list_packs`, `run_pack`) and two skills. They call the `wayfinder` CLI above, so install that first.
-
-```sh
-# Claude Code
+# 2. Your agent: Claude Code (inside a session) ...
 /plugin marketplace add VolksRat71/wayfinder
 /plugin install wayfinder@wayfinder
+#    ... and/or Codex
+codex plugin marketplace add VolksRat71/wayfinder && codex plugin add wayfinder@wayfinder
 
-# Codex
-codex plugin marketplace add VolksRat71/wayfinder
-codex plugin add wayfinder@wayfinder
-```
-
-### Obsidian (desktop)
-
-```sh
+# 3. Optional: Obsidian (desktop), then enable "Wayfinder" under Settings > Community plugins
 wayfinder obsidian-install ~/path/to/vault
 ```
 
-Then enable **Wayfinder** under Settings > Community plugins. It adds two commands, which work on the selection or on the whole note if nothing is selected:
+Then point it at a folder of markdown notes:
+
+```sh
+wayfinder retrieve "how do we rotate the deploy keys" --source ~/notes
+wayfinder eval --source ~/notes --pick     # optional: score the methods on your own history
+```
+
+**What it reads.** Everything stays on your machine. Retrieve and insert read the notes folder you
+point them at. Only `wayfinder eval` reads more: the git history of that folder and your agent
+transcripts (`~/.claude/projects`, `~/.codex/sessions`), which it uses to build its test
+questions. It writes results to `~/.local/share/wayfinder/` and `~/.local/state/wayfinder/`.
+
+**Upgrade.** Run `uv tool upgrade wayfinder`, `/plugin marketplace update wayfinder` then
+`/plugin update wayfinder@wayfinder`, and `codex plugin marketplace upgrade wayfinder`, and
+re-run `obsidian-install` for each vault.
+**Remove.** Run `uv tool uninstall wayfinder`, `/plugin uninstall wayfinder@wayfinder`,
+`codex plugin remove wayfinder`, and delete `<vault>/.obsidian/plugins/wayfinder/`.
+
+The optional Laya and MiniLM methods pull in torch (several GB):
+`uv tool install "wayfinder[embed,laya] @ git+https://github.com/VolksRat71/wayfinder"`.
+
+## What each surface does
+
+### Agents (Claude Code, Codex)
+
+The plugins add read-only MCP tools (`retrieve`, `insert`, `list_sources`, `list_packs`, `run_pack`) and two skills: `wayfinder` (when to retrieve or insert, and how to read the results) and `wayfinder-packs` (how to write and evaluate a pack). `insert` only suggests. The agent does the write and follows your notes' own conventions.
+
+### Obsidian (desktop)
+
+Two commands, which work on the selection, or on the whole note if nothing is selected:
 - **Related notes** opens the notes that best match.
 - **Where does this go?** lists the existing notes this text belongs in, plus a folder for a new note.
 
-The plugin calls the local CLI: there is no server and nothing leaves your machine. Re-run the install command to upgrade. The plugin finds the CLI in `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin`. A custom path set in its settings is stored on that device only, never in the vault, so a synced or committed vault can't change which program runs.
+The plugin calls the local CLI: there is no server and no network use. It looks for the CLI in `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin`. A custom path set in its settings is stored on that device only, never in the vault, so a synced or committed vault can't change which program runs.
 
 ## Use
 
@@ -116,3 +135,7 @@ claude --plugin-dir .                # try the Claude plugin from the checkout; 
 codex plugin marketplace add .       # try the Codex plugin from the checkout
 cd obsidian && npm install && npm test   # build the Obsidian plugin into src/wayfinder/obsidian_plugin/ and smoke-test it
 ```
+
+**Releasing.** Plugin caches are keyed by version, so a change only reaches teammates when the
+version goes up. Bump it in all four places together: `pyproject.toml`, `.claude-plugin/plugin.json`,
+`.codex-plugin/plugin.json` and `src/wayfinder/obsidian_plugin/manifest.json`.

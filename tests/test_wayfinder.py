@@ -157,3 +157,14 @@ def test_choice_pack_scores_methods_against_majority(vault):
     assert rows[("choice", "majority")][6] == 2 / 3
     assert rows[("choice", "says-blocked")][6] == 1.0
     assert rows[("choice/follow_up", "says-blocked")][3] == 1  # per-label recall rows
+
+
+def test_all_manifests_share_one_version():
+    import json
+    import tomllib
+    from pathlib import Path
+    root = Path(__file__).parent.parent
+    versions = {tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]} | {
+        json.loads((root / p).read_text())["version"] for p in
+        (".claude-plugin/plugin.json", ".codex-plugin/plugin.json", "src/wayfinder/obsidian_plugin/manifest.json")}
+    assert len(versions) == 1, versions

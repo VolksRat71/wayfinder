@@ -134,7 +134,7 @@ def test_obsidian_install_copies_plugin_and_never_writes_a_command(tmp_path):
 def test_pick_never_chooses_a_baseline(tmp_path, monkeypatch):
     monkeypatch.setattr(E, "STATE", tmp_path)
     pack = Pack("p", "", "retrieve", "x", methods=["recent", "bm25"], metric="recall@5")
-    rows = [("s", "retrieve", "recent", 9, 0.4, 0.9, 0.6, ""), ("s", "retrieve", "bm25", 9, 0.3, 0.5, 0.4, "")]
+    rows = [("s", "retrieve", "recent", 50, 0.4, 0.9, 0.6, ""), ("s", "retrieve", "bm25", 50, 0.3, 0.5, 0.4, "")]
     assert E.pick(pack, Source("t", tmp_path), rows) == "bm25"
 
 
@@ -198,3 +198,14 @@ def test_a_failing_pack_does_not_stop_the_eval(vault, monkeypatch, capsys):
     cli.main(["eval", "--source", str(path), "--results", str(path / "results.tsv")])
     out, err = capsys.readouterr()
     assert "pack bad failed" in err and "insert_update" in out
+
+
+def test_pick_keeps_the_default_on_ties_and_small_evals(tmp_path, monkeypatch):
+    monkeypatch.setattr(E, "STATE", tmp_path)
+    pack = Pack("p", "", "retrieve", "x", methods=["bm25", "zzz", "bm25+recent"], default="bm25+recent", metric="recall@5")
+    tie = [("s", "retrieve", m, 50, 0.3, 0.5, 0.4, "") for m in ("bm25", "zzz", "bm25+recent")]
+    assert E.pick(pack, Source("t", tmp_path), tie) == "bm25+recent"
+    small = [("s", "retrieve", "zzz", 7, 0.9, 0.9, 0.9, ""), ("s", "retrieve", "bm25+recent", 7, 0.1, 0.1, 0.1, "")]
+    assert E.pick(pack, Source("t", tmp_path), small) == "bm25+recent"
+    better = [("s", "retrieve", "zzz", 50, 0.3, 0.8, 0.4, ""), ("s", "retrieve", "bm25+recent", 50, 0.3, 0.5, 0.4, "")]
+    assert E.pick(pack, Source("t", tmp_path), better) == "zzz"

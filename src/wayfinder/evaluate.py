@@ -179,14 +179,25 @@ METRIC_COLUMN = {"hit@1": 4, "recall@5": 5, "mrr": 6, "accuracy": 6}
 PRIMARY_ACTION = {"retrieve": "retrieve", "insert": "insert_update", "choice": "choice"}
 
 
+MIN_PICK_ROWS = 20  # fewer eval rows than this can't tell methods apart; keep the pack default
+
+
 def pick(pack, source, rows):
-    """Record the pack's best method for this source; the runtime uses it as the default."""
+    """Record the pack's best method for this source; the runtime uses it as the default.
+
+    The pack default stays unless another method strictly beats it on at least MIN_PICK_ROWS
+    rows: ties and tiny evals are noise, not evidence.
+    """
     col = METRIC_COLUMN[pack.metric]
-    scored = [(r[col], r[2]) for r in rows
-              if r[1] == PRIMARY_ACTION[pack.action] and r[2] in pack.methods and r[2] not in pack.baselines]
+    scored = {r[2]: (r[col], r[3]) for r in rows
+              if r[1] == PRIMARY_ACTION[pack.action] and r[2] in pack.methods and r[2] not in pack.baselines}
     if not scored:
         return None
-    best = max(scored)[1]
+    best = pack.default
+    floor = scored.get(pack.default, (float("-inf"), 0))[0]
+    for name, (score, n) in scored.items():
+        if n >= MIN_PICK_ROWS and score > floor:
+            best, floor = name, score
     picks_path = STATE / "picks.json"
     picks = json.loads(picks_path.read_text()) if picks_path.exists() else {}
     picks.setdefault(str(source.path) if source else "-", {})[pack.name] = best
